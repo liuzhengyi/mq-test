@@ -1,0 +1,15 @@
+// install zmq via pear
+// 2013-05-06
+// see: http://www.zeromq.org/bindings:php
+
+step1. install pear
+	$sudo apt-get install php-pear
+
+step2. install zmq via pear
+	$sudo pear channel-discover pear.zero.mq
+	$sudo pecl install pear.zero.mq/zmq-beta
+
+step3. modify php.ini
+	$sudo vi /etc/php5/conf.d/zmq.ini
+	// added the following line:
+	extension=zmq.so

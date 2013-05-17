@@ -1,0 +1,58 @@
+// 2013-05-06
+// liuzhengyi
+
+step 0. install rabbitmq-server under Ubuntu/Linux
+-------------------------------------------
+参考手册中的 amqp.installation.html 页
+sudo apt-get install rabbitmq-server
+start rabbitmq: sudo /etc/init.d/rabbitmq-sever start|stop|restart
+control rabbitmq: sudo rabbitmqctl help
+
+
+
+step 1. install PHP amqp extension under Ubuntu/Linux
+-------------------------------------------
+环境
+	ubuntu 12.04
+	gcc4.6.3
+	php 5.3.10-1
+
+要安装的包
+	librabbitmq
+	codegen
+	amqp
+
+安装过程
+	参考 http://blog.csdn.net/linvo/article/details/7776702
+
+	下载并解压librabbitmq
+	参考下载地址 https://github.com/alanxz/rabbitmq-c/tags
+	我下载的版本 https://github.com/alanxz/rabbitmq-c/tree/rabbitmq-c-v0.3.0
+	https://github.com/alanxz/rabbitmq-c/archive/rabbitmq-c-v0.3.0.zip
+
+	下载并解压codegen
+	参考下载地址 http://hg.rabbitmq.com/rabbitmq-codegen/rev
+	我下载的版本 http://hg.rabbitmq.com/rabbitmq-codegen/archive/22f12fdcdcee.tar.bz2
+
+	将解压后的codegen目录下内容放到第一步中下载并解压的rabbitmq-c/codegen/目录下
+
+	然后在rabbitmq-c/目录下进行如下操作：
+	autoreconf -i	
+	# 若缺少autoreconf程序，则安装 autoconf
+	./configure && make && sudo make install
+
+	下载并编译amqp.so
+	参考下载地址 http://pecl.php.net/package/amqp
+	http://pecl.php.net/get/amqp-1.0.10.tgz
+	解压后进入目录执行：
+	$phpize
+	# 若缺少 phpize 则安装 php5-dev
+	$./configure --with-amqp
+	$make && sudo make install
+
+	在php.ini中添加 extension=amqp.so
+	
+	安装完成
+
+测试代码
+	参考 http://www.cnblogs.com/lchb/articles/2889923.html

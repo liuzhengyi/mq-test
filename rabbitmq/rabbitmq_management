@@ -1,0 +1,19 @@
+// 2013-05-07
+// liuzhengyi
+
+access control
+
+AMQP command				configure	write			read
+
+exchange.declare(passive=false)		exchange		
+exchange.delete				exchange		
+queue.declare(passive=false)		queue		
+queue.delete				queue		
+exchange.bind						exchange (destination)	exchange (source)
+exchange.unbind						exchange (destination)	exchange (source)
+queue.bind						queue			exchange
+queue.unbind						queue			exchange
+basic.publish						exchange	
+basic.get									queue
+basic.consume									queue
+queue.purge									queue

@@ -1,0 +1,38 @@
+	语言支持
+amq：java/c/c++/php/ruby/perl/python/c#
+zmq：
+rmq：
+
+	协议支持
+amq：
+zmq：
+rmq：
+
+	后台消息管理
+amq：
+zmq：
+rmq：
+
+	权限控制
+a:
+z:
+r:	
+	消息分发
+r:	有专门的消息分发机制，可以使消息定向传送。如某只收听某部门的消息，或只收听和web有关的消息。
+
+	安全性
+
+
+
+
+参考：
+
+李会军•宁静致远 | Redis作为消息队列与RabbitMQ的性能对比
+http://zoomq.qiniudn.com/ZQScrapBook/ZqFLOSS/data/20110714104018/ 
+
+消息队列软件产品大比拼
+http://www.aqee.net/message-queue-shootout/
+
+火丁笔记 Redis消息通知系统的实现
+http://huoding.com/2012/02/29/146
+

@@ -1,0 +1,146 @@
+// amqp concepts
+// 2013-05-06
+// see http://www.rabbitmq.com/tutorials/amqp-concepts.html
+
+model-in-brief
+				   -----------------------------
+				   |	rabbit mq server       |  
+	Publisher ---------------> |Exchange -----------> Queue| ---------> Consumer
+			(publish)  |		(route)	       |  (consume)
+				   -----------------------------
+
+	Publisher 向 Exchange 发送消息时可以指定一些关键字，Exchange根据这些关键字和自身的设置
+	来决定如何路由这些消息到不同或相同的队列中去。
+	Consumer 从队列中读消息。
+
+AMQP 的可编程性质
+	amqp 0.9.1 是一个可编程的协议，这体现在amqp的实体和路由策略是由应用程序自己决定的，而非消息服务器。
+	通常情况下，可以的操作有：声明queue和exchange，定义两者之间的binding，订阅queue等。
+	这给了开发者很多自由，但是也使得冲突定义可能发生。冲突的产生通常说明配置有误。
+	应用程序声明自己需要使用的AMQP实体，定义必要的路由策略，也可以选择在不用的时候删除相应的AMQP实体。
+
+Exchange
+	Exchange是AMQP中的实体，publisher将消息直接发送给exchange。
+	Exchange将消息传递给零个或多个queue。
+	路由算法根据Exchange的类型不同而不同。AMQP提供四种类型的Exchange: direct, fanout, topic, head.
+	类型在声明exchange时指定，与此同时指定的Exchange参数还有：Name, Durability, Auto-delete, Arguments
+	Durable exchange在broker重启之后仍然存在。
+	而非Durable的exchange在重启之后需要重新声明。
+	Default Exchange
+		被broker预声明过的一个没有名字(empty string)的directExchange，
+		所有的queue创建之后都会自动通过一个和queue同名的binding key绑定到他。
+		exchange传递消息时会根据routingkey是否和bindingkey(queue name)相同来决定路由。
+	Direct Exchange
+		根据Routing key传送消息。适合做单播。
+		queue和direct exchange绑定时提供binding key。
+		exchange 传递消息时根据消息的routing key传递，routing key要和binding key完全一致才会传递。
+		当多个队列的routing key一样时，broker将自动进行负载均衡(round-robin manner)。
+		负载均衡基于 消费者而不是队列，对于amqp091而言。 
+	Fanout Exchange
+		fanout exchange将消息传送给所有绑定到它的queue，忽略routing key。
+		同一条消息将传递给N个queue，所以很适合广播的场景。
+	Topic Exchange
+		queue和exchange绑定时的binding key可以指定为一个模式（包含通配符*和#）。
+		客户端向交换机投递消息时提供的routing key将传递给符合binding key模式的queue们。
+		可以用于实现多种 发布/订阅 模式的变种。多用于多播
+		Example uses:
+		Distributing data relevant to specific geographic location, for example, points of sale
+		Background task processing done by multiple workers, each capable of handling specific set of tasks
+		Stocks price updates (and updates on other kinds of financial data)
+		News updates that involve categorization or tagging (for example, only for a particular sport or team)
+		Orchestration of services of different kinds in the cloud
+		Distributed architecture/OS-specific software builds or packaging where each builder can handle only one architecture or OS
+	Header Exchange
+		Header exchange不依赖routingke判断消息的路由，而是根据消息的header属性。
+		如果消息的header和queue绑定到exchange时指定的一致，则认为是匹配的。
+		一个队列和exchange绑定时可以指定多个header。此时，broker需要应用程序提供一条额外的信息来说明判断路由时是否要考虑所有的header。
+		Headers exchanges can be looked upon as "direct exchanges on steroids".
+		Because they route based on header values, they can be used as direct exchanges where the routing key does not have to be a string;
+		it could be an integer or a hash (dictionary) for example.
+		
+Queue
+	除了和Exchange共有的一些属性外，还有如下属性：
+	Name,
+		应用程序可以自己给queue命名，也可以请求broker生成随机名字。
+		以amq.开头的queue名字是broker保留的。尝试生命这样的queue名会导致一个403。
+	Durable(survive in broker restart)
+		Durable queues are persisted to disk and thus survive broker restarts.
+		Queues that are not durable are called transient.
+		Not all scenarios and use cases mandate queues to be durable.
+		Durability of a queue does not make messages that are routed to that queue durable.
+		If broker is taken down and then brought back up, durable queue will be re-declared during broker startup,
+		however, only persistent messages will be recovered.
+	Exclusive (used by only one connection and the queue will be deleted when that connection closes)
+	Auto-delete(queue is deleted when last consumer unsubscribes)
+	Arguments(some brokers use it to implement additional features like message TTL)
+	
+Bindings
+	Bindings是exchange路由消息到queue时使用的规则。
+	只有将queue和exchangebind到一起，这个exchange才能想此queue传递消息。
+	bind的时候可以指定一个routing key。routing key起到filter的作用。
+	如果消息无法被路由到任何队列（可能由于次交换机没有绑定特定的queue），消息可能被丢弃或这返回给消息发送方。
+
+Consumers
+	amqp091中有两种消费消息的方法：push 和 pull
+	使用push API时，应用程序必须指定自己感兴趣的queue。这被称作注册（订阅）一个队列。
+	一个queue可以有多个消费者，也可以注册一个排它消费者（exclusive consumer）
+	每个消费者都有一个叫做consumer tag的标识符，这可以用来退订消息，标识符是个字符串。
+	
+
+msg ack
+	ack有两种方式，一种是自动，一种是手动。
+	自动模式下，一旦消息被传送到应用程序，broker就会将消息清除掉。
+	手动模式允许开发者自己决定发送ack的时机。
+	如果打开了ack模式，则服务器只有在收到ack回应之后才会将消息从队列中清除。
+	如果在收到ack之前，相应的client断开了连接，则这条消息会被考虑重新发送。如果没有可以发送的地方，broker将会等待。
+	如果一条消息无法被发送，服务器通过实现某个扩展，可以将其放入'dead letter queue'中，供producer处理。
+rejectging messages (basic.reject)
+	应用可以通过rejecting messages告知broker消息处理失败或暂时不可用。
+	当rejecting message时，应用程序可以让broker抛弃消息或者重新发送到别的队列。
+	当只有一个消费队列时，一定要注意不要让borker无限循环的重新发送消息。
+negative acknowledgemets
+	basic.reject不能向ack一样处理多条消息。
+	rabbitmq提供了一个叫做negative acknowledgements的扩展可以做类似的事情。
+prefetching messages
+	当多个消费者共享一个queue时，指定prefetch size是很有用的。
+	它可以制定每次可以给每个consumer发送多少条消息而不用等待其ack。
+	注意：rmq仅支持chnnel-level的prefetch-count，不支持connection or size based prefetching。
+
+Message Attributes and Payload
+	amqp模型中消息有很多属性，有些属性很常用，所以amqp091将其定义。如：
+	Content type
+	Content encoding
+	Routing key
+	Delivery mode (persistent or not)
+	Message priority
+	Message publishing timestamp
+	Expiration period
+	Producer application id
+	有些属性是给AMQPbroker用的，但大部分是接受消息的应用程序看的。
+	有些属性是可选的，叫做header，它们和HTTP X-header类似。
+	amqp消息也可以有payload，amqpbroker将其视作不透明的字节数组。broker不会检查或修改payload。
+	消息可以只有属性而没有payload。
+	为了将结构化数据用作消息的payload，一般 会用JSON等格式序列化消息。amqp使用者一般用"content-type"和"content-encoding"
+	来交流这些信息，不过这只是传统而已。
+	消息可以以persistent模式发布，amqpbroker会将这些消息persist到disk上。
+	如果server重启，系统将确保已经收到的persisitent msg不会丢失。
+	仅仅将消息发送到一个持久的exchange或者说消息被发送到了一个持久的queue并没有使消息持久话，这完全取决与消息自身的持久化模式。
+	消息持久化有性能上的损失。
+
+Connections
+	amqp 的链接通常是long-live的。amqp是应用层协议，使用TCP作为可靠传输。
+	amqp连接使用认证，可以使用TLS（ssl）保护。
+Channels
+	amqp使用channels实现多工。channels可以被认为是“共享一个TCP的轻量连接”
+	对于多线程的程序，为每个线程开启一个channel而不是共享channel是很正常的。
+	不同channel的通信是完全隔离的。
+	所以每个amqp方法都自带一个channelnumber来标识客户端。
+
+vhosts
+	为了让一台rmqserver服务与多个相互隔离的环境。
+	这个概念和大多数webserver提供的vhosts类似。提供完全隔离的环境。
+	客户端连接到服务器时指定希望使用vhost。
+amqp extensible
+	自定义交换机类型
+	per-queue message TTL in rabbitmq
+	additional plugins 如 rabbitmq management

@@ -1,0 +1,64 @@
+// 2013-05-06
+// gipsaliu(at)gmail(dot)com
+// at pps
+
+回顾一下 上次的消息发布模式
+----------------------------
+1. 使用一个扇出型的exchange，
+	channel.exchange_declare(exchange='logs', type='fanout')
+2. 和随机名称的临时queue。
+	result = channel.queue_declare()
+3. 另外，queue的属性还要设为exclusive=true，使得当客户端断开与server的连接时，删除这个queue
+	result = channel.queue_declare(exclusive=True)
+
+扇出型的exchange可以将publisher发来的消息传递给所有的queue。
+随机名称的queue可以确保每个连接到服务器的subcriber新开一个queue，不会拿到积压的消息。
+
+4. 然后将exchange和queue绑定：
+	channel.queue_bind(exchange='logs', queue=result.method.queue)
+
+思考：可以通过不使用随机queue，而使用某一类queue名称并且exclusive=false，来使得客户端可以拿到积压的消息。
+
+
+Routing
+---------------------------------
+上一节描述了一个广播系统，publisher发布的消息，将被所有在线的consumer分别收到。
+这和我们的需求有点像。
+这一节探讨一下如何将某一类消息定向的发送到某些consumer，而不是所有的consumer。
+
+本节的模型还是log发布，log有三种级别(orange, black, green)，black log会被一个consumer处理（记录到disk上）；
+其他两种log会被另一个consumer处理（输出到屏幕上）。
+
+0. Binding 是一种exchange和queue之间的联系。建立binding时可以指定一个routing_key参数，如：
+	channel.queue_bind(exchange=exchange_name,
+			   queue=queue_name,
+			   routing_key='black')
+routing_key 的意义取决于exchange的类型，
+fanout类型的exchange会直接忽略这个参数，因为它会将消息传递给所有在编的queue。
+direct exchange会在意这个参数，只会将消息传递到完全匹配的routing_key的queue。
+如果用一个同一个bindingkey绑定多个queue，则对于这些queue而言，direct exchange的表现相当与fanout exchange。
+
+1. 建立一个direct exchange
+2. 开启一个channel
+3. consumer 选择绑定哪个或哪些routing key
+4. publisher 产生消息时指定routing key
+5. 可以有多个consumer queue同时binding到同一个routing key，此时相当与exchange就该routing kye对这几个consumer fanout
+6. 一个consumer queue可以同时binding到多个routing key，则将同时收到多种binding key指定的消息。
+
+Topics
+-------------------------------------------
+上一节描述了一个选择广播系统，publisher发布信息时标记信息类别，consumer可选择接收某一种或几种消息。
+这和我们的需求已经比较接近了。
+这一节我们将讨论一个更为强大的模式，Topic模式的Exchange。
+
+0. Topic模式的Exchange接收一个topic参数，该参数一般是一个点分割的字符串。
+例： 'stock.usd.nyse', 'nyse.vmw', 'quick.orange.rabbit'
+在指定binding key的时候，可用的通配符有两个: * and #。
+* -> single word; # -> zero or more words.
+
+通过使用#和*，topic exchange 可以表现的像direct或者fanout。当然，充分利用的情况下，topic exchange更加强大。
+
+
+
+RPC 远程过程调用
+---------------------------------------------

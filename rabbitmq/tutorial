@@ -1,0 +1,60 @@
+helloworld
+-------------------
+
+一个Producer向queue发送消息Hello，一个Consumer从queue消费该消息。
+发送端：
+s1. 和rabbitmq服务器建立连接，并打开一个channel。
+#!/usr/bin/env python
+import pika
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+               'localhost'))
+	       channel = connection.channel()
+s2. 发送消息之前声明一个queue，如果向一个不存在的queue发送消息，rmq服务器会直接抛弃该消息。声明即命名。可以多次声明同一个queue。 现在可以向服务器发送消息了，但是在rmq中，永远不能直接向queue发送消息，只能通过exchange发送消息。为了不陷入细节，我们可以先用一个用空字符串标识的默认的exchange。这个exchange允许我们指定消息应该送往哪个queue。queue的名字用routing_key参数指定。此处使用'hello'作为queue的名字。
+channel.queue_declare(queue='hello')
+channel.basic_publish(exchange='',
+                      routing_key='hello',
+                      body='Hello World!')
+print " [x] Sent 'Hello World!'"
+s3. 我们可以通过关闭和服务器的连接来确保我们发送的
+connection.close()
+
+接收端：
+1. 首先，还是和服务器建立连接，这一点和发送端一样。
+2. 确认要介绍的queue是存在的，声明它，
+* 查看当前queue及其状态 $sudo rabbitmqctl list-queues
+3. 接收消息需要向该queue指定一个callback函数。但收到消息时这个函数就会被调用。我们的例子中callback的功能是打印出消息内容。
+def callback(ch, method, properties, body):
+    print " [x] Received %r" % (body,)
+4. 接下来要告诉rmq服务器，我们的callback函数要接收queue(hello)中的消息。
+channel.basic_consume(callback,
+                      queue='hello',
+                      no_ack=True)
+5. 4中的命令要想成功，必须保证queue(hello)是存在的，还好我们有充分的自信，我们已经声明过了。
+6. 然后我们进入一个死循环，等待消息的到来。
+
+work queues
+--------------------
+1. 如果我们使用上述参数，同时开启两个consumer，然后开启一个publisher，会发现两个consumer分别消费了一半的消息。这是默认规则，轮流干，亦称round-robin。 
+2. 上述参数中有一个no_ack=true 在这种设定下，queue只要把消息发出去，就会立即将其从queue中清除，而不去管consumer是否给出回应。 通过调整no_ack参数可以使得rmqserver在收到consumer的ack之后才将这条消息从内存中清除。如果某个consumer断开连接，并且没有对某条消息发送ack，则server认为其失败了，将会重新发送这条消息到别的consumer。
+注意。这里没有超时的概念，只有consumer与server的连接断开了，server才会考虑重新发送消息。
+3. Forgotten acknowledgment
+
+It's a common mistake to miss the basic_ack. It's an easy error, but the consequences are serious. Messages will be redelivered when your client quits (which may look like random redelivery), but RabbitMQ will eat more and more memory as it won't be able to release any unacked messages.
+
+In order to debug this kind of mistake you can use rabbitmqctl to print the messages_unacknowledged field:
+
+$ sudo rabbitmqctl list_queues name messages_ready messages_unacknowledged
+Listing queues ...
+hello    0       0
+...done.
+4. 消息持久化
+即便如2所述，如果server挂了，还是有可能丢失消息。
+除非我们同时将queue和messages都标记为durable.
+如果我们现在声明'hello' queue为持久的，这样是不行的。因为这和之前的定义是不一样的。rmqserver不允许对同一个queue有不同的定义。
+ The persistence guarantees aren't strong, but it's more than enough for our simple task queue. If you need a stronger guarantee you can wrap the publishing code in a transaction.
+ 即便这样，依然不能保证绝对不丢消息。If you need a stronger guarantee you can wrap the publis    hing code in a transaction.
+
+ 5. 之前的分配策略并不关注不同sonsumer的负载，而仅仅是按照数量来分配。为了让负载更加均衡，可以basic.qos方法配合prefetch_count=1的设定。
+ 这样的话，server会只在每个consumer发回ack之后才给它分配任务。
+ 但是这有可能引起queue空间占满。此时你可以考虑多加几个consuerm或者其他策略。

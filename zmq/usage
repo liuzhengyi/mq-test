@@ -1,0 +1,302 @@
+// usage of zmq with PHP on Linux
+// see: http://zguide.zeromq.org/page:all
+// only translate index for quick searching
+
+preface 
+前言
+=====
+
+zmq in a hundred words 简介
+-------------------------------
+how it begin 如何开始
+-------------------------------
+the zen of zero 
+-------------------------------
+audience 受众
+-------------------------------
+acknowledgements 须知
+--------------------------------
+
+chapter 1 basics 基础
+===================
+
+fixing the world 修复世界
+-------------------------------
+starting assumption 一些假定
+-------------------------------
+getting the exanples 获取实例
+-------------------------------
+ask and ye shall reveive 
+	这就是zmq的基本传输模型 req-rep
+	相当与RPC和传统的C/S模型。
+-------------------------------
+a minor note on strings 关于字符串的一点注意
+	ZMQ只记录字符串的长度和内容，而C程序认为字符串的结尾应该有一个null。
+-------------------------------
+version reporting 查看版本
+-------------------------------
+getting the message out  把消息发送出去
+	zmq中第二种经典模式是单向数据传递
+	server 广播，client 订阅 然后 过滤接收
+	一个client可以订阅多个发布者，也可以随时取消特定的订阅。
+	pub-sub 套接字对是异步的。
+	注意：如果订阅者启动比较晚，则自然会丢失一部分消息。但即使订阅者启动晚于发布者，依然会丢失一部分消息。
+	因为zmq太快了，建立tcp连接的过程(假定5 msecs)，server已经可以发送出5k的消息了(假定1k/msec)。
+	这叫做 slow joiner 问题，解决方案会在后面给出。
+	本节的例子中，假定：1.server发送的消息是无始无终的；2. client不在乎自己启动之前有哪些消息。
+	关于sub-pub 模式：
+	*一个订阅者可以订阅多个发布者，每次使用一个connect call。数据将会交替接收（fair-queued）。
+	*如果一个发布者没有订阅者，它将抛弃自己产生的所有消息。
+	*如果使用TCP，并且订阅者比较慢，消息将会在发布者端排队。可以使用'high-water mark'来解决这个问题。
+	*从zmq3.x起，对于TCP或IPC连接，过滤器在发布者端；对于epgm协议，过滤器在订阅者端。zmq2.x 过滤器全在订阅者端。
+
+-------------------------------
+divide and conquer 分而制之
+	并行管道
+	一个ventilator发布任务到若干个Worker，Workers并行的完成任务后将结果发布给Sink程序。
+	*这个系统是很方便水平扩展的——只需要多开启worker进程即可。
+	*需要先启动所有的Workers(手动同步他们)才能到达并行的结果，原因还是在于上一节上提到的slow joiner
+	*在上一条的基础上，Ventilator平均的将任务分配给Workers，负载均衡。
+	*Sink程序平均的从Workers那里收集结果，fair-queuing，公平队列。
+-------------------------------
+programming with zmq
+-------------------------------
+get the context right
+	一般以创建一个上下文(context)开始，然后使用上下文创建sockets。
+	程序中应该只使用一个上下文。除非你确信你知道自己在做什么。
+-------------------------------
+making a clean exit 干净的退出
+	zmq程序如何退出要求比较苛刻。
+	简单说，如果你有socket未关闭，则destroy()将一直等待。
+	即便你关闭了所有sockets，默认情况下，如果有挂起的连接或发送，destory()操作将一直等待。
+	除非你在关闭这些sockets之前将LIGNGER设为0.
+	*尽量使用zmq_send() and zmq_recv() ，这可以避免和zmq_msg_t打交道；
+	*如果你非要使用zmq_msg_recv(),一定要尽快的使用zmq_msg_close()释放收到的消息；
+	*如果你打开或关闭了很多sockets，很可能意味着你应该重构一下你的程序。有时，soket handles不会被释放直到你销毁context。
+	*推出程序时，关闭sockets，然后调用zmq_ctx_destroy()。这将销毁context。
+	对于多线程程序，干净的推出更加复杂，后面的章节会详细讲到。
+
+-------------------------------
+why we needed zmq
+	所有可重用的消息层都需要解决以下这些问题：
+	- 如何处理I/O。程序是否应该阻塞，还是应该在后台处理IO，这是个关键设计决策。阻塞IO的体系不易规模化，后台IO技术上比较难实现好。
+	+ 用后台进程异步的处理IO。使用无锁的数据结构，所以并发的zmq app无须锁，同步量，或者别的等待状态。
+
+	- 如何处理动态组件，（即那些会暂时离开的部分）？我们应该正式的将组建分割为'clients'&'servers'然后命令server不许消失吗？
+		如果我们希望server和server通信，该怎么办？我们每隔几秒就要重新连接吗？
+	+ 组件可以自由的来去，zmq会自动的重连。你可以以任何顺序启动组件。
+		你可以创建"service-oriented architectures(SOAs)"，服务可以随时加入或离开网络。
+
+	- 我们如何表示在网线上传递的消息？如何给数据划分帧以使得数据方便读写，缓存溢出安全，对小消息高效，对大消息够用？
+	+ 当需要时，zmq将消息存入队列。这是智能完成的，存入队列之前，将消息推送到里接收者尽可能进的地方。
+	+ zmq使用简单的帧将整个消息发送到网络上，如果你发送了一个10K的消息，你将收到一个10K消息。
+
+	- 对于暂时无法发送的消息该如何处理？比如，我们在等待一个组件。是把数据丢弃还是写入数据库还是写入内存队列？
+	+ high water mark。当队列满的时候，zmq自动阻塞发送者，或者将消息扔掉，取决与消息的种类（即“模式”）
+	+ zmq允许app们使用任意的方式交谈：TCP，多播，in-process, inter-process。不必改动代码就可以切换传输模式。
+
+	- 消息队列存储于何处？如果消费者很慢，导致队列持续增长怎么办？用什么策略？
+	+ zmq可以安全的处理慢速或是阻塞的消费者，基于不同消息模式，使用不同消息策略。
+
+	- 如何对付消息丢失？等待新的消息，请求重发还是构建一个可靠层保证消息不会丢失？如果这个可靠层崩溃了会怎样？
+	+ zmq允许你创建代理来进行队列，转发或这不或消息。代理可以降低网络的内部交互复杂度。
+
+	- 如何路由消息？可以多播吗？可以向消息发送者反馈吗？
+	+ zmq允许你使用多种模式路由消息，如request-reply & pub-sub。
+		这些模式是你创建的布局和网络的结构。
+
+	- 如何为另一门语言写API？重新实现一个wire-level的协议还是重新包装一个库？
+		前者如何保证高效和稳定？后者如何保证互操作性？
+
+	- 如何呈现数据以使不同的结构都能读？是否强制某种编码方式？
+		how far is this the job of the messaging system rather than a higher layer?(没看懂)
+	+ zmq不给消息强加任何编码方式。消息可以的大小可以是0到Gs大。
+		当你想呈现数据时，在顶层使用其他的产品，如msgpack或Google's protocel buffers 或者别的。
+
+	- 如何处理网络错误？等待，重试还是忽略，抑或退出？
+	+ zmq智能处理网络错误，在需要的时候自动重试。
+-------------------------------
+socket scalability socket的可规模性
+-------------------------------
+upgrading from zmq v.2.2 to zmq v3.2
+-------------------------------
+	compatible changes
+	incompatible changes
+	suggested shim macros
+	warning: unstable paradigms!
+
+chapter 2 sockets and patterns  套接字和模式
+===============================
+本章将覆盖：
+- 如何使用zmqsockets创建work
+- 如何通过sockets收发消息
+- 如何使用zmq的异步IO模型构建你的应用程序
+- 如何在一个进程里使用多个sockets
+- 如何合理的处理致命和非致命错误
+- 如何处理中断信号，如Ctrl-C
+- 如何干净的关闭zmq应用程序
+- 检测zmq app的内存泄漏
+- 收发multipart消息
+- 穿过网络转发消息
+- 构建一个简单的消息队列服务器
+- 使用zmq写多进程应用程序
+- 进程间使用zmq通信(?)
+- 网络节点通过zmq协作
+- 为pub-sub创建、使用消息封装(message envelopes for pub-sub)
+- 使用HVM(high-water mark)防止内存耗尽
+
+the socket api	套接字接口
+-------------------------------
+	zmq sockets的生命周期有四部分，这和bsd sockets一样。
+	1. create/destroying (zmq_socket, zmq_close)
+	2. configuring sockets (zmq_setsockopt, zmq_getsockopt)
+	3. 通过创建zmq connections将sockets插入网络拓扑或从中拔除 (zmq_bind, zmq_connect)
+	4. 通过写或收消息，使用sockets传递数据 (zmq_send, zmq_recv)
+	注意：
+	sockets总是空指针，messages总是结构体。所以在C中，你可以原样传递sockets，对于message则应该传地址(zmq_send, zmq_recv)。
+
+plugging sockets into the topology 将套接字接入拓扑结构
+-------------------------------
+	为了在两个节点之间建立连接，在一个节点上使用zmq_bind()，另一个上使用zmq_connect()。
+	通常情况下使用zmq_bind()的是server，使用一个知名端口；另一个是client，使用非知名端口或任意端口。
+	所谓的绑定一个socket到一个终端，或者连接一个socket到一个终端，终端值的就是那个知名端口地址。
+	zmq连接和传统TCP连接有所不同，主要体现在：
+	- 可以使用任意传输(inproc, ipc, tcp, pgm 或者 epgm)，参见 zmq_inproc(), zmq_ipc(), zmq_tcp(), zmq_pgm() 和 zmq_epgm()；
+	- 一个socket可以有多个出连接和多个入连接；
+	- 不存在zmq_accept()方法，一旦一个socket绑定到终端(endpoint)，它就会自动开始接受连接。
+	- 网络连接在后台进行，如果被破坏zmq会自动重连(如一个组件离开了一会儿又回来了)。
+	- 应用程序不能直接使用这些连接，它们被封装于socket之下。
+
+	很多应用程序的架构在某种程度上接近C/S模型，这种情况下，通常是server bind, client connect().
+	即便server尚未bind，只要client connect了，connection就存在了，这个节点就可以向socket中写消息了。
+	在某一时刻(最好是在消息没有积累到开始丢弃之前)，server bind上来，然后zmq开始deliver消息。
+	?如上所述，在server bind之前，消息存在哪里？as close as possible to the client?
+
+	一个server node可以bind到多个endpoints上(这意味着，protocol和address都可以是多个)，而只使用一个socket。
+	如：
+		zmq_bind(socket, 'tcp://*:5555');
+		zmq_bind(socket, 'tcp://*:9999');
+		zmq_bind(socket, 'inproc://somename');
+	大多数情况下，不能两次绑定同一个地址，（不像UDP中）。
+	不过ipc传输协议允许一个进程绑定一个已经在使用中的endpoint，这意味着允许进程从崩溃中恢复。
+
+	尽管zmq试图在binds和connects的问题上保持中立，但他们还是有所不同。这一点后面还会提到。
+	最重要的是：
+		servers是拓扑结构中比较稳定(static)的部分，应该绑定到或多或少个固定的endpoints上。
+		而clients是动态的部分，他们跑过来去链接这些endpoints。
+	应该围绕这个模型来设计应用程序。
+
+	Sockets具有type。type定义了socket的语义，向内、向外或向队列中路由消息的策略。
+	可以同时connect不同类型的sockets，如：a publisher socket & a subscriber socket
+	Sockets work together in "messaging patterns"
+
+	连接sockets的不同方式使得zmq有了消息队列系统的基本功能。这之上还有几层，如代理。
+	本质上，你像小朋友玩积木一样通过将不同的组件放到一起定义你的网络体系。
+
+
+
+
+sending and receiving messages 收发消息
+-------------------------------
+	zmq 使用zmq_msg_send() & zmq_msg_recv()方法收发消息。
+	zmq 的IO模型和传统TCP模型大不相同。
+	+ zmq sockets 携带消息，这一点和像udp，不像tcp(字节流)。zmq的消息是指定长度的二进制数据。
+	+ zmq用后台进程处理IO。这意味着，消息被收到local input queues，然后从local output queues中发出，不管应用程序此时在忙于干吗。
+	+ zmq sockets内建的支持一对多路由，这和socket type相关。
+
+	zmq_send()方法没有真正将消息发送到socket connection(s)。它将消息存入队列使得IO进程可以异步的发送它们。
+	除非发生某些异常情况，上述过程不会阻塞。所以，当app中的zmq_send()返回时，消息未必真的发送出去了。
+
+unicast transports 单播传输
+-------------------------------
+	单播(inproc, ipc, tcp) 多播 (epgm, pgm)
+
+	最常用的是zmq 的tcp，它是一个非连接的TCP传输。zmq tcp传输不要求endpoint一定早于connect行为存在。
+	clients和servers可以在任何时候bind或connect，然后在任何时候离开。这对应用程序是透明的。
+
+	inter-process ipc 传输也是非连接的。它有一个限制：在windows上不工作。
+	通常我们通过给endpoint起一个.ipc后缀的名字来避免和其他文件名冲突。
+	在UNIX系统上使用ipc，你需要给它合适的权限否则它可能无法被不同的用户id启动的程序所共享。
+	还应该确保所有的进程可以访问到这些文件。如，在同一目录下运行它们。
+
+zmq is not a neutral carrier zmq不是一个中立的携带者
+-------------------------------
+
+i/o threads IO 线程
+-------------------------------
+	zmq在后台处理IO，除了某些极端的案例，一个IO进程已经够用了。
+	当创建新的context时，就开启了一个IO进程。通常允许一个进程每秒进出1G字节的数据。
+	要想增加IO进程数，在创建sockets之前，使用 zmq_ctx_set()。
+		int io_threads = 4; 
+		void *context = zmq_ctx_new();
+		zmq_ctx_set (context, ZMQ_IO_THREADS, io_threads);
+		assert (zmq_ctx_get (context, ZMQ_IO_THREADS) == io_threads);
+	一个socket可以同时处理几十甚至上千个connections。
+	传统的网络app每个远程连接使用一个进程或线程，处理一个socket。zmq将所有的这些结构变为一个进程。
+
+messaging patterns 消息模式
+-------------------------------
+
+high-level messaging patterns 高层次的消息模式
+-------------------------------
+
+working with messages 
+-------------------------------
+
+handing multiple sockets 控制多个sockets
+-------------------------------
+
+multipart messages 多播消息
+-------------------------------
+
+intermediaries and proxies 中介和代理
+-------------------------------
+
+the dynamic discovery problem 动态发现
+-------------------------------
+
+shared queue(DEALER and ROUTER sockets) 共享队列
+-------------------------------
+
+ZMQ's built-in proxy function 内建的代理函数
+-------------------------------
+
+transport bridging 传输桥
+-------------------------------
+
+handling errors and eterm 处理错误和eterm
+-------------------------------
+
+handling interrupt signals 处理中断信号
+-------------------------------
+
+detecting memory leaks 检测内存泄漏
+-------------------------------
+
+multithreading with zmq 使用zmq多线程
+-------------------------------
+
+signaling between threads(PAIR Sockets) 线程之间的信号（结对套接字）
+-------------------------------
+
+node coordination 节点协作
+-------------------------------
+
+zero-copy
+-------------------------------
+
+pub-sub message envolopes 
+-------------------------------
+
+high-water marks 高水位标记
+-------------------------------
+
+missing message problem solver 解决消息丢失问题
+-------------------------------
+
+
+
+
+chapter 3 advanced request-reply patterns
+...
+

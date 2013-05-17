@@ -1,0 +1,92 @@
+消息分发系统构想2 消息队列+HTTP代理推送
+liuzhengyi
+05-10-2013
+
+part 1 (本部分说明想法来源，若要跳过，可以直接看part 2)
+
+消息队列的产生最初是为了[高并发的接受任务，然后将任务并行异步的分发给实际负责处理任务的程序]。
+在我们的需求模型里，消息队列应该做的事情仅仅是(收集消息，然后交给一个[负责分发消息的程序])。
+
+这个[负责分发消息的程序]就是原始模型中[处理任务的程序]，碰巧的是这里的任务是“分发消息”，这一点让人太容易联想到消息队列，虽然事实并非如此。
+虽然现在的消息队列产品也能分发消息，但我们此处的[负责分发消息的程序]并无必要使用消息队列来实现。
+
+因为我们对[消息分发这部分过程]有权限控制等诸多要求，这些并不是消息队列产品所擅长的。
+而且，要让所有的客户端运行一个消息队列守护进程是比较复杂的。
+进而，要让所有的客户端使用消息队列程序向消息队列发送消息也是愚蠢的，因为那将需要开发各种语言的客户端，虽然这在技术上是可行。
+用一个代理程序接收客户端发来的HTTP协议，然后这个代理程序将消息投入消息队列。这样，就不用专门为各种客户端开发程序了。因为访问HTTP协议对当今的应用程序来说是比较轻松的事情。
+
+所以，这个架构的设想是这样的：
+
+part 2
+消息传递模型：
+client(send) --[0]--> http proxy a --[1]--> message queue (redis, zmq, rmq ...) --[2]--> http proxy b --[3]--> clients(receive)
+
+注：其中[3]有两种方式完成，一种是proxy1 push消息到client注册的响应程序，另一种是等待client来pull。具体使用何种方法需要client自己预先定义。
+
+
+安全性控制
+	client需要在server中注册成为合法用户，注册过程由管理员人工控制，注册时client提供一个name给server。server返回一个token给client。
+	以后的通讯就靠name和token认证（当然也可以结合其他信息，如ip，mac，甚至rsa密钥），亦可使用https协议传输。
+消息路由
+	消息自身携带一系列预定义tag，tag的可能值由白名单控制。
+	客户端注册时声明自己感兴趣的tags和收取消息的method（pull or push），proxy a将不合法的消息过滤，合法的消息投入队列。
+	proxy b从消息队列中取消息，根据tag，结合client的权限和等级的method，做消息分发。
+权限控制
+	不同client的权限由管理员写入数据库和缓存。
+	权限包括client可以收听的tag，可以发送的tag等。
+	client可以申请权限，亦可有管理员代为决定。
+并发和扩展
+	-消息产生
+	由于proxy a只做简单的判断和投递处理，故而性能会比较高。
+	如果对性能要求更高，可以让proxy a直接将消息投入queue a ，
+	然后proxy c去queue a中取消息，做合法性判断 ，
+	将合法消息投入queue2,然后proxy b从queue2中取消息进行投递。
+	这样前端就能承受更高的并发。
+	-消息消费
+	对于由proxy b推送的消息，可以慢慢轮流推送，不会过载。
+	对于由client轮询的消息，则存在一定的可能性过载。可以通过动态增加proxy c的数量来解决，MQ具有负载均衡功能。
+	//?但是多数proxy c之间的协调会有点麻烦。考虑禁止轮询，只提供推送？或者将轮询请求也放入一个队列？轮询要求的实时性比较高吧。
+
+消息路由末端实现
+	末端指消息传递过程的最后一部分，即消息传递模型中的3，proxy b从quque中拿到消息后。
+	proxy b首先判断该消息的接收者有哪些，然后遍历这些接收者，判断其method类型。
+	以下用伪码描述：
+	if('push' == $method) 
+		give the msg to deal_push_msg($msg, $client_address);
+	else if ('pull' == $method)
+		give the msg to deal_pull_msg($msg, $client_address);
+	else
+		false;
+	end if
+
+	// 处理要推送的消息 负责这条消息的完整性和安全性
+	function deal_push_msg($msg, $client_address) {
+		calculate $checksum;		// 计算一个校验和，
+		send $msg to $client_address;	// 将消息发送client
+		$sleep_time = 16;		// 睡眠时间初始值 (seconds)
+		while(client not ack correct) { // 如果client没有确认消息，则循环
+			if($sleep_time  > 3600) {	// 如果要睡眠时间过大，
+				write the msg into db;	// 写数据库
+				mark the incident in redis for function response_hi() ;	// 在redis中标记这个事件
+				break;			// 停止push
+			}
+			sleep($sleep_time + $sleep_time_increment);	// 睡眠更长时间
+			resend $msg to $client;				// 重发消息
+		}
+	}
+	// 处理要等待client来pull的数据 具体行为视请求频率而定
+	function deal_pull_msg($msg, $client) {
+		append $msg into redis;	// use client name as key
+		check the last pull time;
+		if(时间过长) {
+			写数据库;
+			从redis中清除;
+			mark the incident in redis for further pull;
+		}
+	}
+
+
+队列实现
+	考虑用redis实现或者rmq，zmq均可。
+	因为只用到了队列的基本功能。
+

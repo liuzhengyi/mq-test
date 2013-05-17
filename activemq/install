@@ -1,0 +1,60 @@
+// installed on aliyun
+// 2013-05-03
+// see http://www.jmkg.co.uk/2010/08/31/installing-activemq-on-ubuntu/
+// and http://pookey.co.uk/wordpress/archives/75-stomping-with-php-intergration-with-activemq
+
+
+//$suto apt-get install avtivemq 最后选择了从源码安装的方案
+$sudo apt-get install jre javac
+$sudo pecl install stomp (choosed no for ssl for simple)
+
+// download source
+$#wget latest version activemq
+$tar xxx activemq
+
+// add new user amq for activemq
+$sudo adduser amq --disable-login --disable-password --no-create-home
+
+// change the source to safe place
+$sudo chown -R root:root activemq/
+$sudo chown -R amq activemq/data/
+$sudo mv activemq/ /opt/
+
+// adding startup
+$sudo ln -sf /opt/activemq/bin/activemq /etc/init.d/
+$sudo update-rc.d activemq defaults
+
+// default and local configuration
+$sudo /etc/init.d/activemq setup /etc/default/activemq
+
+// edit the newly generated /etc/default/activemq file
+You're looking initially for ACTIVEMQ_USER="". Enter the name of your activemq user between the quotes. Further down, uncomment the lines:
+
+ACTIVEMQ_SUNJMX_START="-Dcom.sun.management.jmxremote.port=11099 "
+ACTIVEMQ_SUNJMX_START="$ACTIVEMQ_SUNJMX_START -Dcom.sun.management.jmxremote.password.file=${ACTIVEMQ_CONFIG_DIR}/jmx.password"
+ACTIVEMQ_SUNJMX_START="$ACTIVEMQ_SUNJMX_START -Dcom.sun.management.jmxremote.access.file=${ACTIVEMQ_CONFIG_DIR}/jmx.access"
+ACTIVEMQ_SUNJMX_START="$ACTIVEMQ_SUNJMX_START -Dcom.sun.management.jmxremote.ssl=false"
+ACTIVEMQ_SUNJMX_START="$ACTIVEMQ_SUNJMX_START -Dcom.sun.management.jmxremote"
+And right underneath that lot:
+
+ACTIVEMQ_SUNJMX_CONTROL="--jmxurl service:jmx:rmi:///jndi/rmi://127.0.0.1:11099/jmxrmi --jmxuser controlRole(amq ?) --jmxpassword abcd1234"
+#ACTIVEMQ_SUNJMX_CONTROL=""
+
+
+# Specify the queue manager URL for using "browse" option of sysv initscript
+ACTIVEMQ_QUEUEMANAGERURL="--amqurl tcp://localhost:61616"
+
+// create the data/jmx.password and data/jmx.access files
+data/jmx.password
+amq	abcd1234
+data/jmx.access
+amq	readwrite
+
+// let activemq load stomp
+ <!-- The transport connectors ActiveMQ will listen to -->
+    <transportConnectors>
+      <transportConnector name="openwire" uri="tcp://localhost:61616"/>
+	(add the following line:)
+      <transportConnector name="stomp" uri="stomp://localhost:61613"/>
+    </transportConnectors>
+restart activeMQ

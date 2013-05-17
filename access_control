@@ -1,0 +1,23 @@
+// 2013-05-07
+// liuzhengyi
+
+我们需要的访问控制：
+某个或某些用户只能向某个或某些exchange中发消息；
+某个或某些用户只能从某个或某些queue中读消息；
+用户可以在自己能收听的queue中做自主选择；
+
+rabbitmq 提供的access control：
+	通过username/password认证用户
+	vhost 
+	exchange
+	bindging
+
+用户权限控制：
+	可以设定不同用户在不同vhosts中的特定资源上的conf/write/read权限。
+	资源是指：exchanges 和 queues
+	conf -- create 或 destroy 资源(ex/queue)(declare/delete)
+	write -- 向资源中注入消息 (ex/queue)(bind/unbind)
+	read -- 从资源中检出消息 (ex/queue)(bind/unbind/get/consume/purge)
+	用户的权限会被缓存，当下次连接服务器时生效。
+	rabbmitmq默认安装将创建一个 vhost / user guest(guest) 
+	user guest 对 vhost / 具有完全权限

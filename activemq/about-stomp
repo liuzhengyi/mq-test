@@ -1,0 +1,32 @@
+see http://en.wikipedia.org/wiki/Streaming_Text_Orientated_Messaging_Protocol
+Stream Text Oriented Messaging Protocel
+基于文本的简单协议，设计为消息传递中间件（MessageOrientedMiddleware）
+它提供一个interoperable wire format以使stomp客户端可以和任何支持该协议的消息broker交谈。
+这意味着基于a平台a语言开发的broker可以接收b平台上b语言开发的客户端发来的消息。
+该协议大体上和HTTP协议相似，通过以下命令工作于TCP层：
+*connect
+*send
+*subscribe
+*unsubscribe
+*begin
+*commit
+*abort
+*ack
+*nack
+*disconnect
+客户端和服务器段之间使用'frame'通信，'frame'由一些行构成。
+第一行包含命令，然后是以<key>:<value>格式传递的header，每个一行。
+接着是一个空白行，然后是消息体，最后以null字符结尾。
+服务器和客户端之间使用和上述类似结构的MESSAGE，RECEIPT和ERROR frame来通信。
+STOMP和OpenWire相似，后者为ApacheActiveMQBroke所用。
+
+实现：
+*server
+Apache ActiveMQ
+Open Message Queue（Open MQ）
+RabbitMQ
+Ruby server
+*client
+Stomp.py
+Stomp.erl
+tStomp

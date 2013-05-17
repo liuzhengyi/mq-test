@@ -1,0 +1,10 @@
+// readme.text
+// 2013-05-13
+// liuzhengyi
+
+0. 本damon展示一个简单的消息分发系统，具体架构设计参见structure.text；
+1. 本damon基于rabbitmq和PHP amqp 扩展，相关安装参考见install_amqp_rabbitmq，rabbitmq配置采用默认配置，可以暂不修改；
+2. 本damon使用receive.php生成一条消息放入队列; 使用distribute.php对队列的中的消息进行分发处理，分别分发给pull.php和push.php；push.php模拟负责将消息推送至用户处，pull.php模拟负责将消息写入缓存或数据库等待用户来轮询。事实上push.php和pull.php只是将模拟的执行过程记录到push.log和pull.log中。
+2. 执行$php test.php 10 可以产生10条消息并放入rabbitmq server，默认产生9条消息，输出运行时间
+3. 执行$php distribute.php 可以逐条消化队列中的消息；
+4. 消化消息时，每条消息发送给10个默认用户，起动10个处理进程进行发送，不输出运行时间，运行信息写入push.log和pull.log，此程序需要手工终止。
