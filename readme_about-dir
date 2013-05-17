@@ -1,0 +1,106 @@
+// readme_about-dir 目录结构介绍
+// 2013-05-17
+
+
+目前可用的damon有damon-test1和damon-test2
+安装等参见相应的install文件
+使用参见相应的文档文件
+.
+├── access_control
+├── activemq
+│   ├── about-stomp
+│   └── install
+├── comparison-of-MQs.ods...几种mq产品的技术对比
+├── contract................技术对比
+├── rabbitmq
+│   ├── amqp_concepts               amqp基本概念
+│   ├── damon-consumer-linvo.php    参考示例
+│   ├── damon-publisher-linvo.php   参考示例
+│   ├── damon-pubsub                参考示例
+│   │   ├── emit_log.py
+│   │   └── receive_logs.py
+│   ├── damon-routing               参考示例
+│   │   ├── damon-consumer.php
+│   │   ├── emit_log_direct.php
+│   │   ├── emit_log_direct.py
+│   │   └── receive_logs_direct.py
+│   ├── damon-rpc                   参考示例
+│   │   ├── rpc_client.py
+│   │   └── rpc_server.py
+│   ├── damon-test1                 ***damon1***可用***
+│   │   ├── c1.php
+│   │   ├── c2.php
+│   │   ├── c3.php
+│   │   ├── construct.php
+│   │   ├── destruct.php
+│   │   ├── p1.php
+│   │   ├── p2.php
+│   │   ├── p3.php
+│   │   └── sys_doc.text
+│   ├── damon-test2                 ***damon2***可用***
+│   │   ├── conf.d  配置文件
+│   │   │   ├── rmq_admin_config.php
+│   │   │   ├── rmq_general_config.php
+│   │   │   ├── rmq_reader_config.php
+│   │   │   └── rmq_writer_config.php
+│   │   ├── control 控制脚本
+│   │   │   ├── delete_exchange.php
+│   │   │   ├── delete_queue.php
+│   │   │   ├── destroy.sh
+│   │   │   ├── init.php
+│   │   │   ├── init.sh
+│   │   │   ├── intro.text
+│   │   │   └── reset.sh
+│   │   ├── distribute_task.php 消息分发程序
+│   │   ├── docs 文档
+│   │   │   ├── improve_curl_poll.php
+│   │   │   ├── structure.text
+│   │   │   └── test_result.text
+│   │   ├── include
+│   │   │   └── push_func.php
+│   │   ├── oldfiles
+│   │   │   ├── pull.php
+│   │   │   └── test.serial.old.php
+│   │   ├── push-curlmultipost.php
+│   │   ├── push-curlpost.php
+│   │   ├── push.php
+│   │   ├── push-socket.php
+│   │   ├── push-writelog.php
+│   │   ├── readme.text 说明文件
+│   │   └── receive_msg.php 前端http代理
+│   ├── damon-test3                 ***damon3***不可用***
+│   │   ├── distribute_task.php
+│   │   ├── install_amqp_rabbitmq.text
+│   │   ├── pull.php
+│   │   ├── push.php
+│   │   ├── readme.text
+│   │   ├── receive_msg.php
+│   │   ├── structure.text
+│   │   └── test.php
+│   ├── damon-topics            参考示例
+│   │   ├── emit_log_topic.py
+│   │   └── receive_logs_topic.py
+│   ├── damon-workers           参考示例
+│   │   ├── new_task.py
+│   │   └── worker.py
+│   ├── install_amqp_rabbitmq   如何安装
+│   ├── rabbitmq_management     rmq管理
+│   ├── test
+│   │   ├── consumer.php
+│   │   ├── consumer.py
+│   │   ├── controller-create.php
+│   │   ├── controller-delete.php
+│   │   ├── publisher.php
+│   │   └── publisher.py
+│   ├── tutorial                rmq学习
+│   ├── tutorial2               rmq学习
+│   └── tutorial.new            rmq学习
+├── readme_about-dir            本说明文件
+├── README.md
+├── requirements
+├── sys_thought0-overview       架构思路总
+├── sys_thought1                架构思路1
+├── sys_thought2                架构思路2
+└── tmp
+
+16 directories, 86 files
