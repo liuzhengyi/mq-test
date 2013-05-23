@@ -1,0 +1,343 @@
+$php distribute_task.php xmpost 3
+Message:
+processing msg (this is a message) [1] 
+debug: 3 users to send for this msg.
+string(14) "Resource id #8"
+string(14) "Resource id #9"
+string(15) "Resource id #10"
+string(15) "Resource id #11"
+NULL
+a new curl resource 
+string(15) "Resource id #12"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #13"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #14"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #15"
+new ch's try time = 2 
+retry a msg. retry=4, try_times=2
+NULL
+a new curl resource 
+string(15) "Resource id #16"
+new ch's try time = 2 
+retry a msg. retry=4, try_times=2
+NULL
+a new curl resource 
+string(15) "Resource id #17"
+new ch's try time = 2 
+retry a msg. retry=4, try_times=2
+NULL
+a new curl resource 
+string(15) "Resource id #18"
+new ch's try time = 3 
+retry a msg. retry=4, try_times=3
+NULL
+a new curl resource 
+string(15) "Resource id #19"
+new ch's try time = 3 
+retry a msg. retry=4, try_times=3
+NULL
+a new curl resource 
+string(15) "Resource id #20"
+new ch's try time = 3 
+retry a msg. retry=4, try_times=3
+NULL
+a new curl resource 
+string(15) "Resource id #21"
+new ch's try time = 4 
+retry a msg. retry=4, try_times=4
+NULL
+a new curl resource 
+string(15) "Resource id #22"
+new ch's try time = 4 
+retry a msg. retry=4, try_times=4
+NULL
+a new curl resource 
+string(15) "Resource id #23"
+new ch's try time = 4 
+retry a msg. retry=4, try_times=4
+NULL
+fail to deliver a msg. retry=4, try_times=5
+NULL
+fail to deliver a msg. retry=4, try_times=5
+NULL
+fail to deliver a msg. retry=4, try_times=5
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [2] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #24"
+string(15) "Resource id #25"
+string(15) "Resource id #26"
+string(15) "Resource id #27"
+NULL
+a new curl resource 
+string(15) "Resource id #28"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #29"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #30"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [3] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #31"
+string(15) "Resource id #32"
+string(15) "Resource id #33"
+string(15) "Resource id #34"
+NULL
+a new curl resource 
+string(15) "Resource id #35"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #36"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #37"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [4] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #38"
+string(15) "Resource id #39"
+string(15) "Resource id #40"
+string(15) "Resource id #41"
+NULL
+a new curl resource 
+string(15) "Resource id #42"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #43"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #44"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [5] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #45"
+string(15) "Resource id #46"
+string(15) "Resource id #47"
+string(15) "Resource id #48"
+NULL
+a new curl resource 
+string(15) "Resource id #49"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #50"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #51"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [6] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #52"
+string(15) "Resource id #53"
+string(15) "Resource id #54"
+string(15) "Resource id #55"
+NULL
+a new curl resource 
+string(15) "Resource id #56"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #57"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #58"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [7] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #59"
+string(15) "Resource id #60"
+string(15) "Resource id #61"
+string(15) "Resource id #62"
+NULL
+a new curl resource 
+string(15) "Resource id #63"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #64"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #65"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [8] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #66"
+string(15) "Resource id #67"
+string(15) "Resource id #68"
+string(15) "Resource id #69"
+NULL
+a new curl resource 
+string(15) "Resource id #70"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #71"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #72"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [9] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #73"
+string(15) "Resource id #74"
+string(15) "Resource id #75"
+string(15) "Resource id #76"
+NULL
+a new curl resource 
+string(15) "Resource id #77"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #78"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #79"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
+processing msg (this is a message) [10] 
+debug: 3 users to send for this msg.
+string(15) "Resource id #80"
+string(15) "Resource id #81"
+string(15) "Resource id #82"
+string(15) "Resource id #83"
+NULL
+a new curl resource 
+string(15) "Resource id #84"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #85"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+NULL
+a new curl resource 
+string(15) "Resource id #86"
+new ch's try time = 1 
+retry a msg. retry=4, try_times=1
+array(3) {
+  [0]=>
+  bool(false)
+  [1]=>
+  bool(false)
+  [2]=>
+  bool(false)
+}
