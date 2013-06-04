@@ -1,0 +1,40 @@
+郭老师，
+    我按照我们昨天(周三)早上讨论的思路实现了damon4。
+    其消息传递的核心和damon3是一样的。增强之处主要在于前端的消息处理方式，权限控制等。
+    目前的实现是这样的：
+
+    client可以通过到server注册来获取一个身份id和token_salt。
+    然后该client可以通过server向使用本系统的其他clients发送消息。
+
+    具体发消息的机制如下：
+    client请求创建一个channel，channel里指明该channel的收听者，即欲将消息发送给哪些clients。
+    （这里有一个问题，就是要想给一个client发消息，你必须至少知道这个client的身份id）
+    然后该client向自己刚刚创建的channel发消息，server会把消息推送给与该channel相关的clients。
+    这个channel由创建者管理，可以添加收听者，删除收听者，删除channel。
+    （这些功能尚未实现，我的想法是通过client与server之间的消息通信自动完成上述功能）
+    其中消息传送过程都已经使用hmac方式签名。
+
+    具体代码在/mq-test/rabbitmq/damon-test4/下面。( https://github.com/liuzhengyi/mq-test )
+    如果你安装了php的amqp扩展（参见mq-test/rabbitmq/install_amqp_rabbitmq）就可以通过
+    运行receive_msg.php向rabbitmq队列插入100条测试数据。(rabbitmq server running on my desktop)
+    运行distribute_task.php可以将这100条消息根据各自的目的channel发送给相应的测试用户（共一千次发送，包含验证消息token和重新生成验证token的过程）。
+    distribute_task.php可以以守护进程的身份一直运行，一旦队列中来消息，则开始进行分发。
+    可以启动多个distribute_task.php，rabbitmq server会自动进行负载均衡。
+
+    测试数据写在damon-test4/testdata.php中，rabbitmqserver运行在我公司的电脑上(应该还在运行中 ip 10.1.8.137)，10个测试用户运行在我的vps上。
+    测试程序没有使用数据库，而是从文件testdata.php中读数据，也没有使用client来发送消息，而是直接让receive_msg.php自己发送消息。
+
+
+    下一步要完善的事情：
+    实现用client来创建channel，发送消息，管理channel 等任务。
+
+
+    几个问题：
+    1. client的注册过程如何实现？是人工注册还是程序自己注册？如何验证注册者的身份？如何保证token_salt的安全传输？
+    2. 当前的策略是要想给某个client发消息，必须知道其身份id，也必须知道其身份id。这样的策略是否可行？
+    3. 是否有必要让client有权拒收某个channel的消息，即将自己从某个channel中删除？
+    4. 是否有必要给channel增加管理员的概念，然后管理员client都有对该channel进行管理的权限？
+    5. client对channel的管理是通过消息实现自动管理呢？还是通过诸如web接口，由人工来操作？
+    6. 我还应该考虑哪些问题？
+
+    P.S. 我下周三答辩，明天可能就要回学校了，不能通过rtx联系了，不过我还可以使用公司的邮箱。有空请回个邮件给我吧，谢谢！

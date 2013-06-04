@@ -1,0 +1,19 @@
+// readme.text of damon-test4
+// 2013-05-22
+// liuzhengyi
+
+0. 本damon展示一个简单的消息分发系统，具体架构设计参见structure.text；
+1. 本damon基于rabbitmq和PHP amqp 扩展，相关安装参考见install_amqp_rabbitmq，rabbitmq配置采用默认配置，可以暂不修改；
+
+05-15
+使用：
+安装好rabbitmq-server和php的amqp扩展之后：
+//1. 运行control/init.sh；	// 生成vhost和用户并设定用户权限
+//2. 运行control/init.php；	// 生成交换机和队列并建立绑定
+//
+//3. 运行receive_msg.php 100；	// 产生100条消息并入队列
+//4. 运行distribute_task.php 10；	// 将队列中的消息并行发给10个用户，该程序会阻塞，需要手动结束之
+//5. 重复3,4，改变参数，观察执行时间。入列的时间会直接输出到控制台，处理的时间记录在push.log里，需要手动查看并计算，最好随时清空push.log
+//6. 重复3,4时，可以通过cp push-curlpost.php push.php的方式改变模拟处理消息的方式
+//
+//7. 执行control/destory.sh；	// 删除vhost和用户，vhost删除后，队列和交换机也就不存在了
