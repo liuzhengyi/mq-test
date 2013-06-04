@@ -30,7 +30,7 @@ $testdata_channels = array(
     array('id'=>'5', 'creator'=>'5', 'listener_list'=>'1,2,3,4,5,6,7,8,9,10', 'create_time'=>"$now", 'valide'=>true),
 );
 
-// messages
+// 100 messages 
 $testdata_messages = array(
     // 1-10
     array('from'=>'1', 'channel'=>'1', 'birth_time'=>'1334567890', 'body'=>'this is a test message from damon-test4', 'type'=>'str', 'priority'=>'h', 'ttl'=>'0'),

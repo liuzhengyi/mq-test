@@ -12,7 +12,41 @@
 细节实现：
 =================
 
+消息推送：
+----------
+预期
+    使用curl的multi模式进行并发。
+    结合按消息并发和按client并发两种模式。
+当前：
+    使用curl的multi模式进行并发。
+    按消息并发，即没一条消息起一个multi_curl来完成发给一组用户的任务。
+
 消息重发：
 ----------
-目前使用方案：
-    
+预期
+    在一个multi curl内完成，当消息发送失败时自动再次压入multi_curl的任务批。
+当前：
+    在多个multi_curl内完成，一个multi_curl中失败的传输在下一个multi_curl中重发。
+
+消息分类|权限控制
+-------------------
+预期
+    client只能听到匹配自己注册过的标签tag的消息；
+    client注册tag时需要人工验证。
+当前：
+
+消息安全|身份验证|
+---------------------
+预期
+    client注册时，server给client分配一个token_salt，server自己也保存一份salt；
+    client发送消息时用token_salt和消息体中的时间戳加密得到一个token，用于验证消息来自真实client；
+    client用token_salt加密消息体。
+    server通过token验证client的身份后，使用token_salt解密消息体。
+当前：
+
+消息持久化
+-----------------
+预期
+    rabbitMQ本身可以保证队列的消息的持久化；
+    程序需要将每条处理过的消息写入数据库，用以持久化。
+当前：

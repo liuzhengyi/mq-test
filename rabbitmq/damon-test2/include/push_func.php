@@ -1,6 +1,6 @@
 <?php
 /* include/push_func.php
- * liuzhengyi 
+ * liuzhengyi
  * 2013-05-16
  */
 function push_writelog($msg_body, $address, $logfile) {
@@ -68,22 +68,22 @@ function curl_single_post($url, $post_data) {
 /*
  * 使用 php扩展中原生的curl批处理 curl_mulit_exec()
  *
- * $args是一个二维数组，包含内容$arg数组，
- * $arg = array('url'=>'http://xxxx', 'post_msg'=>'xxxx');
+ * $curl_msgs是一个二维数组，包含内容$curl_msg数组，
+ * $curl_msg = array('url'=>'http://xxxx', 'post_msg'=>'xxxx');
  */
-function push_curl_mpost($args){
-	if(!is_array($args) ) {
+function push_curl_mpost($curl_msgs){
+	if(!is_array($curl_msgs) ) {
 		exit('curl_multi_post need parameter 2 to be array.');
 	}
 	$mh = curl_multi_init();
 	$chs = array();	// 记录存放 $ch 供释放资源时使用
-	foreach($args as $arg) {
+	foreach($curl_msgs as $curl_msg) {
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_URL, $arg['url']);
+		curl_setopt($ch, CURLOPT_URL, $curl_msg['url']);
 		curl_setopt($ch, CURLOPT_POST, 1);
 		curl_setopt($ch, CURLOPT_HEADER, 0);
-		curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($arg['post_data']));
+		curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($curl_msg['post_data']));
 		curl_multi_add_handle($mh, $ch);
 		$chs[] = $ch;
 
@@ -113,62 +113,65 @@ function push_curl_mpost($args){
 	curl_multi_close($mh);
 }
 
-function push_curl_xmpost($args) {
-	$queue = curl_multi_init(); 
-	$map = array(); 
+function push_curl_xmpost($curl_msgs, $curl_timeout=1, $results) {
+	$curl_queue = curl_multi_init();
+        var_dump((string)$curl_queue);
+	$map = array();
 
-	foreach ($args as $arg) { 
-		$ch = curl_init(); 
+	foreach ($curl_msgs as $curl_msg) {
+        if(true === $results[$curl_msg['sn']]) {
+            break;
+        }
+		$ch = curl_init();
+        var_dump((string)$ch);
 
-		curl_setopt($ch, CURLOPT_URL, $arg['url']); 
-		curl_setopt($ch, CURLOPT_TIMEOUT, 6); 
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
-		curl_setopt($ch, CURLOPT_HEADER, 0); 
-		curl_setopt($ch, CURLOPT_NOSIGNAL, true); 
+		curl_setopt($ch, CURLOPT_URL, $curl_msg['url']);
+        if(intval($curl_timeout) > 0) {
+            curl_setopt($ch, CURLOPT_TIMEOUT, intval($curl_timeout));
+        }
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_HEADER, 0);
+		curl_setopt($ch, CURLOPT_NOSIGNAL, true);
 		curl_setopt($ch, CURLOPT_POST, 1);
 		curl_setopt($ch, CURLOPT_HEADER, 0);
-		curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($arg['post_data']));
+		curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($curl_msg['post_data']));
 
-		curl_multi_add_handle($queue, $ch); 
-		$map[(string) $ch] = $arg['url']; 
-	} 
+		curl_multi_add_handle($curl_queue, $ch);
+		$map[(string) $ch] = $curl_msg['sn'];
+        $results[$map[(string) $ch]] = false;
+	}
 
-	//$responses = array(); 
-	do { 
-		while (($code = curl_multi_exec($queue, $active)) == CURLM_CALL_MULTI_PERFORM) ; 
+	do {
+		while (($code = curl_multi_exec($curl_queue, $active)) == CURLM_CALL_MULTI_PERFORM) ;
 
-		if ($code != CURLM_OK) { break; } 
+		if ($code != CURLM_OK) { break; }   // todo: error occured !
 
-		// a request was just completed -- find out which one 
-		while ($done = curl_multi_info_read($queue)) {
-			// get the info and content returned on the request 
-			$info = curl_getinfo($done['handle']); 
-			$error = curl_error($done['handle']); 
-			//$results = callback(curl_multi_getcontent($done['handle']), $delay); 
-            $usleeptime = 2000; $timeout = 10001;
-            /*
-            while(!$return = curl_multi_getcontent($done['handle']) and $usleeptime < $timeout) {
-                usleep($usleeptime+=2000);
+		// a request was just completed -- find out which one
+		while ($done = curl_multi_info_read($curl_queue)) {
+			// get the info and content returned on the request
+			$info = curl_getinfo($done['handle']);
+			$error = curl_error($done['handle']);
+            $return_value = curl_multi_getcontent($done['handle']);
+
+			// remove the curl handle that just completed
+			curl_multi_remove_handle($curl_queue, $done['handle']);
+            if(isset($return_value) && 'ok' == $return_value) {
+                $results[$map[(string)$done['handle']]] = true;
+            } else {
+                $results[$map[(string)$done['handle']]] = false;
             }
-            */
-            $return = curl_multi_getcontent($done['handle']);
-            var_dump($return);  // todo : verify the ack
-			//$responses[$map[(string) $done['handle']]] = compact('info', 'error', 'results'); 
+            curl_close($done['handle']);
+		}
 
-			// remove the curl handle that just completed 
-			curl_multi_remove_handle($queue, $done['handle']); 
-			curl_close($done['handle']); 
-		} 
+		// Block for data in / output; error handling is done by curl_multi_exec
+		if ($active > 0) {
+			curl_multi_select($curl_queue, 0.5);
+		}
 
-		// Block for data in / output; error handling is done by curl_multi_exec 
-		if ($active > 0) { 
-			curl_multi_select($queue, 0.5); 
-		} 
+	} while ($active);
 
-	} while ($active); 
-
-	curl_multi_close($queue); 
-//	return $responses; 
-} 
+	curl_multi_close($curl_queue);
+    return $results;
+}
 
 ?>

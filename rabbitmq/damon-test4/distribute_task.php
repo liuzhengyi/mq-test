@@ -1,29 +1,22 @@
 <?php
-/* 2013-05-10
+/* 2013-05-23
  * liuzhengyi
- * damon-test2/distribute_task.php
+ * damon-test4/distribute_task.php
  *
  * 从MQ中取消息，调用消费程序处理消息
  * 处理的过程是按照分类分发消息的过程，
  *
- * 使用get_user_list()生成用户，模拟从数据库中获取用户
- * 每次生成用户的数量通过本程序的$curl_msgv[1]指定，默认为10。
+ * 使用get_clients_list()从测试数据中获取clients列表
  */
 // 包含基本配置文件
 require('./basic_config.php');
+// 包含测试数据
+require('./testdata.php');
 
-// 接受两个命令行参数指明推送时使用的回调函数和模拟用户的数量
-$push_types = array('log', 'post', 'mpost', 'xmpost', 'socket');
-if( $argc < 3 || empty($argv[1]) || !is_numeric($argv[2]) || !in_array($argv[1], $push_types)) {
-	$err_msg = "Usage: $argv[0] push_type=[log|post|mpost|xmpost|socket] user_count=n \n";
-	exit($err_msg);
-}
-$push_type = strval($argv[1]);	global $push_type;
-$user_count = intval($argv[2]); global $user_count;
 
 // 从MQ中取消息
 
-//配置信息
+// MQ配置信息
 require('conf.d/rmq_reader_config.php');
 require('conf.d/rmq_general_config.php');
 
@@ -49,8 +42,8 @@ $msg_count = 0; global $msg_count;
 
 while(True){
 	// 从队列中取消息，然后调用消费程序处理消息
-    $q->consume('processMessage');	// todo catch exception
-    //$q->consume('processMessage', AMQP_AUTOACK); //自动ACK应答
+    $q->consume('xmpostMessage');	// todo catch exception
+    //$q->consume('xmpostMessage', AMQP_AUTOACK); //自动ACK应答
 }
 $rmq_conn->disconnect();
 
@@ -58,16 +51,15 @@ $rmq_conn->disconnect();
 // ----------------user-defined-functions---------------------
 
 /**
- * 消费回调函数
- * 处理消息
+ * xmpostMessage();
+ * 消息消费回调函数
+ * 一次处理一条消息
  * 获得消息接收者列表
  * 遍历列表，
+ * 将消息发给列表中所有clients
+ * 将失败情况记录下来
  */
-function processMessage($envelope, $queue) {
-	global $user_count; // 全局变量，用于指示get_user_list 返回用户的数目
-	if(empty($user_count) or !is_numeric($user_count)) {
-		$user_count = 10;
-	}
+function xmpostMessage($envelope, $queue) {
 	global $msg_count;
 	$msg_count++;
     $serial_msg = $envelope->getBody();
@@ -78,22 +70,33 @@ function processMessage($envelope, $queue) {
 	    echo "processing msg ({$msg_pieces['body']}) [$msg_count] \n";
     }
 
-    // 获得应该接收此消息的用户列表
-    $user_list = get_user_list($msg_pieces, $user_count);
+    // 获得应该接收此消息的clients地址列表，列表中包含clientID
+    $clients_list = get_clients_list($msg_pieces['channel']);
     if(DEBUG) {
-        echo 'debug: ' . count($user_list) . " users to send for this msg.\n";
+        echo 'debug: ' . count($clients_list) . " users to send for this msg.\n";
     }
 
     // 整理一批需要用Curl发送的消息
     $curl_msgs = array();
     $results = array();
     $sn = 0;
-	foreach($user_list as $user) {
+	foreach($clients_list as $client) {
         $curl_msg['sn'] = $sn;
-        $curl_msg['url'] = 'http://dl.gipsa.name/receive_push.php';
-        $curl_msg['post_data']['msg'] = 'msg from enchanced curl multi post';
-        $curl_msg['post_data']['time'] = strval(time());
+        $curl_msg['url'] = $client['address'];
+        $curl_msg['post_data']['birth_time'] = $msg_pieces['birth_time'];
+        $curl_msg['post_data']['body'] = $msg_pieces['body'];
+        $curl_msg['post_data']['deal_time'] = strval(time());
+
+        $curl_msg_post_data = '';
+        $curl_msg_post_data .= $msg_pieces['birth_time'];
+        $curl_msg_post_data .= $msg_pieces['body'];
+        $curl_msg_post_data .= $curl_msg['post_data']['deal_time'];
+        $curl_msg_token = hash_hmac('sha1', $curl_msg_post_data, $client['token_salt']);
+
+        $curl_msg['post_data']['token'] = $curl_msg_token;
+
         $curl_msgs[$sn] = $curl_msg;
+
         $results[$sn] = false;
         $sn++;
 	}
@@ -102,6 +105,7 @@ function processMessage($envelope, $queue) {
     global $conf_curl_timeout;
     global $conf_curl_retry_times;
     for($i = 0; $i < $conf_curl_retry_times; $i++) {
+        echo "tray $i \n";
         push_curl_xmpost($curl_msgs, $conf_curl_timeout, &$results );
     }
 
@@ -111,31 +115,42 @@ function processMessage($envelope, $queue) {
             write_db($curl_msg);
         }
     }
-    var_dump($results); // debug todo del
     $queue->ack($envelope->getDeliveryTag()); //手动发送ACK应答
 }
 
 
+/* get_clients_list($channel)
+ *
+ * 根据channelID获取一个channle的收听者监听地址以及对应的clientID和token_salt
+ * 模拟：从testdata.php中获取原始数据
+ */
+function get_clients_list($channel_id) {
+	// todo: get client list from DB or Cache
 
-function get_user_list($msg_pieces, $user_count) {
-	// todo: get user list from DB or Cache
+	// 以下为模拟行为，原始数据从testdata.php中获取
+    // 获取$channel信息 todo read db or cache
+    global $testdata_channels;
+    $channel = $testdata_channels[$channel_id-1];
 
-	// 以下为模拟行为，用户数量根据传入参数确定
-	if(!is_numeric($user_count)) {
-		$err_msg = 'file:[' . __FILE__ . '] function:[' . __FUNCTION__ ."]. error: parameter 2 should be numeric.\n";
-		exit($err_msg);
-	}
-    // 生成user_list，事实上应该从数据库或缓存中取的
-	$user_list = array();
-	for($i = 0; $i < $user_count; $i++) {
-		$user_list[] = array('address'=>'addresstest', 'type'=>'push',);
-	}
-	return $user_list;
+    // 获取相关clients信息 todo read db or cache
+    $clients = explode(',', $channel['listener_list']);
+    global $testdata_clients;
+
+	$clients_list = array();
+    foreach($clients as $client) {
+        $clients_list[] = array(
+            'id'=>"$client",
+            'address'=>"{$testdata_clients[$client-1]['listen_on']}",
+            'token_salt' => "{$testdata_clients[$client-1]['token_salt']}",
+            );
+    }
+
+	return $clients_list;
 }
 
 function write_db($curl_msg) {
     // todo: write the fail incident into database
-    echo 'send msg ['. $curl_msg['post_data']['msg'] .'] to ['. $curl_msg['url']."] failed. \n";
+    echo 'send msg ['. $curl_msg['post_data']['body'] .'] to ['. $curl_msg['url']."] failed. \n";
     echo 'this function ' . __FUNCTION__ . 'would write the incident into db'."\n";
 }
 

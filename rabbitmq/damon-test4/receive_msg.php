@@ -6,8 +6,11 @@
  * 检查消息合法性
  * 将合法消息入列
  *
- * 当前生成使用固定数组模拟真实的消息，消息数量由可选的$arv[1]确定，默认为100。
+ * 使用数据来自testdata.php
+ * 正常情况下，调用本文件一次应该处理一条消息
+ * 这里同样是出于简单考虑，让本文件一次循环处理一批消息
  */
+
 /*
  * 大致流程：
  * step-0 获取GET/POST消息
@@ -18,15 +21,10 @@
 // ------step-0---获取GET/POST数据---step-0--------------
 
 // 获取GET/POST消息
-// 为方便测试，直接使用如下这个固定数组作为消息来源
-if(!empty($argv[1]) && is_numeric($argv[1])) {
-    $msg_count = intval($argv[1]);
-} else {
-    $msg_count = 100;
-}
-// 为方便测试，暂时直接使用如下这个固定数组作为消息来源
-$timestamp = strval(time());
-$msg_pieces = array('from'=>'oa', 'token'=>'xbn03xj', 'priority'=>'h', 'tag'=>'hello', 'body'=>'this is a message', 'timestamp'=>$timestamp, );
+// 简单起见，从testdata.php获取数据
+require('./testdata.php');
+$messages = $testdata_messages; // init in './testdata.php'
+$msg_count = count($messages);
 // 真实环境中，从HTTP代理获取消息
 /*
 $msg_pieces = array('from'=>'', 'token'=>'', 'priority'=>'', 'tag'=>'', 'body'=>'', 'timestamp'=>'', );
@@ -38,11 +36,14 @@ foreach($msg_pieces as $key => $value) {
 }
 */
 
+$time_start = time();
+// 循环处理一批消息
+foreach($messages as $msg_pieces) {
 // -------step-1----判断消息合法性---step-1---------------
 
 // 判断消息合法性并对消息进行适当修改调整 此函数暂时留空，这是个重要函数 todo
-if(!check_adjust_msg(&$msg_pieces)) {
-    exit("illegal msg\n");
+if(!check_adjust_msg($msg_pieces, $testdata_clients[$msg_pieces['from']]['token_salt'])) {
+    echo("illegal msg\n");
 } else {
     echo "legal msg\n";
 }
@@ -53,8 +54,6 @@ if(!check_adjust_msg(&$msg_pieces)) {
 require('conf.d/rmq_writer_config.php');
 require('conf.d/rmq_general_config.php');
 
-$time_start = time();
-for($i=0; $i < $msg_count; $i++) {
 
     //创建连接和channel
     $conn = new AMQPConnection($rmq_conn_args);
@@ -76,13 +75,26 @@ for($i=0; $i < $msg_count; $i++) {
     $conn->disconnect();
 }
 $time_end = time();
-echo $msg_count.' msg(s) send',"\n";
+echo $msg_count.' msg(s) enqueue',"\n";
 echo 'time used: ',$time_end-$time_start,' second(s)',"\n";
 
 // ---------user-defined-functions---------------
 
-function check_adjust_msg($msg_pieces) {
+/* 对消息进行验证，如有必要可做适当调整
+ *
+ */
+function check_adjust_msg(&$msg_pieces, $token_salt) {
     // todo : do something check and adjust msg_pieces
-    return true;
+    $data = '';
+    foreach($msg_pieces as $k => $v) {
+        if('token' != $k) {
+            $data .= $v;
+        }
+    }
+    $token = hash_hmac('sha1', "$data", "$token_salt");
+    if($token === $msg_pieces['token']) {
+        return true;
+    }
+    return false;
 }
 ?>

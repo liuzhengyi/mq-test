@@ -4,11 +4,13 @@
  * damon-test2/distribute_task.php
  *
  * 从MQ中取消息，调用消费程序处理消息
- * 处理的过程是按照分类分发消息的过程，分发给pull.php或push.php
+ * 处理的过程是按照分类分发消息的过程，
  *
  * 使用get_user_list()生成用户，模拟从数据库中获取用户
- * 每次生成用户的数量通过本程序的$argv[1]指定，默认为10。
+ * 每次生成用户的数量通过本程序的$curl_msgv[1]指定，默认为10。
  */
+// 包含基本配置文件
+require('./basic_config.php');
 
 // 接受两个命令行参数指明推送时使用的回调函数和模拟用户的数量
 $push_types = array('log', 'post', 'mpost', 'xmpost', 'socket');
@@ -20,8 +22,7 @@ $push_type = strval($argv[1]);	global $push_type;
 $user_count = intval($argv[2]); global $user_count;
 
 // 从MQ中取消息
-define("DEBUG", true);
-//define("DEBUG", false);
+
 //配置信息
 require('conf.d/rmq_reader_config.php');
 require('conf.d/rmq_general_config.php');
@@ -60,7 +61,7 @@ $rmq_conn->disconnect();
  * 消费回调函数
  * 处理消息
  * 获得消息接收者列表
- * 遍历列表，根据client注册的获取消息方式分别将任务分发给pull.php或push.php
+ * 遍历列表，
  */
 function processMessage($envelope, $queue) {
 	global $user_count; // 全局变量，用于指示get_user_list 返回用户的数目
@@ -79,57 +80,38 @@ function processMessage($envelope, $queue) {
 
     // 获得应该接收此消息的用户列表
     $user_list = get_user_list($msg_pieces, $user_count);
-    echo 'debug: ' . count($user_list) . " users to send for this msg.\n";
-    // 根据global $push_type 选择处理消息的方式
-    global $push_type;
-    switch ($push_type) {
-    case 'log':
-        foreach($user_list as $user) {
-            //pclose(popen("php push-writelog.php '{$msg_pieces['body']}' '{$user['address']}' >> push.log &", 'r'));
-               $logfile = 'push.log';
-            push_writelog($msg_pieces['body'], $user['address'], $logfile);
-        }
-		break;
-	case 'post':    // 使用多个curl 逐个发送post消息，并发量过大，容易过载死机
-        foreach($user_list as $user) {
-            if('push' == $user['type'] or 'pull' == $user['type']) {
-                // 使用外部程序 ./push.php 完成push功能
-                //$out_cmd = "php push.php {$msg_pieces['body']} {$user['address']} >> push.log &";
-                push_curl_post($msg_pieces['body'], $user['address']);
-                //pclose(popen($out_cmd, 'r'));
-            } else if('pull' == $user['type']) {
-                // 使用外部程序 ./pull.php 完成pull功能 // 暂不考虑pull方式
-                // pclose(popen("php pull.php '$msg_pieces' '{$user['address']}' >> pull.log &", 'r'));
-            } else {
-                $err_msg = 'error type in user_list';
-                exit($err_msg);
-            }
-        }
-		break;
-	case 'mpost':	// 使用curl 批处理发送一批消息，每条消息调用一次，可能发送给多人。 ?? 是不是应该每个用户调用一次
-		foreach($user_list as $user) {
-            $arg['url'] = 'http://dl.gipsa.name/receive_push.php';
-            $arg['post_data']['msg'] = 'msg from curl multi post';
-            $arg['post_data']['time'] = strval(time());
-            $args[] = $arg;
-		}
-        push_curl_mpost($args);
-		break;
-	case 'xmpost':	// 使用增强的curl 批处理发送一条消息给多人
-		foreach($user_list as $user) {
-            $arg['url'] = 'http://dl.gipsa.name/receive_push.php';
-            $arg['post_data']['msg'] = 'msg from enchanced curl multi post';
-            $arg['post_data']['time'] = strval(time());
-            $args[] = $arg;
-		}
-        push_curl_xmpost($args);
-		break;
-	case 'socket':
-		break;
-	default:
-		exit('wrong push_type!');
-		break;
+    if(DEBUG) {
+        echo 'debug: ' . count($user_list) . " users to send for this msg.\n";
     }
+
+    // 整理一批需要用Curl发送的消息
+    $curl_msgs = array();
+    $results = array();
+    $sn = 0;
+	foreach($user_list as $user) {
+        $curl_msg['sn'] = $sn;
+        $curl_msg['url'] = 'http://dl.gipsa.name/receive_push.php';
+        $curl_msg['post_data']['msg'] = 'msg from enchanced curl multi post';
+        $curl_msg['post_data']['time'] = strval(time());
+        $curl_msgs[$sn] = $curl_msg;
+        $results[$sn] = false;
+        $sn++;
+	}
+
+    // 使用增强的curl_multi_exec发送这一批消息
+    global $conf_curl_timeout;
+    global $conf_curl_retry_times;
+    for($i = 0; $i < $conf_curl_retry_times; $i++) {
+        push_curl_xmpost($curl_msgs, $conf_curl_timeout, &$results );
+    }
+
+    // 处理发送失败事件
+    foreach($curl_msgs as $curl_msg) {
+        if(false === $results[$curl_msg['sn']]) {
+            write_db($curl_msg);
+        }
+    }
+    var_dump($results); // debug todo del
     $queue->ack($envelope->getDeliveryTag()); //手动发送ACK应答
 }
 
@@ -149,6 +131,12 @@ function get_user_list($msg_pieces, $user_count) {
 		$user_list[] = array('address'=>'addresstest', 'type'=>'push',);
 	}
 	return $user_list;
+}
+
+function write_db($curl_msg) {
+    // todo: write the fail incident into database
+    echo 'send msg ['. $curl_msg['post_data']['msg'] .'] to ['. $curl_msg['url']."] failed. \n";
+    echo 'this function ' . __FUNCTION__ . 'would write the incident into db'."\n";
 }
 
 ?>

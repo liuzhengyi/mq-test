@@ -115,7 +115,7 @@ function push_curl_mpost($curl_msgs){
 
 function push_curl_xmpost($curl_msgs, $curl_timeout=1, $results) {
 	$curl_queue = curl_multi_init();
-        var_dump((string)$curl_queue);
+    //var_dump((string)$curl_queue);    // debug
 	$map = array();
 
 	foreach ($curl_msgs as $curl_msg) {
@@ -123,7 +123,7 @@ function push_curl_xmpost($curl_msgs, $curl_timeout=1, $results) {
             break;
         }
 		$ch = curl_init();
-        var_dump((string)$ch);
+        //var_dump((string)$ch);    // debug
 
 		curl_setopt($ch, CURLOPT_URL, $curl_msg['url']);
         if(intval($curl_timeout) > 0) {
@@ -152,6 +152,7 @@ function push_curl_xmpost($curl_msgs, $curl_timeout=1, $results) {
 			$info = curl_getinfo($done['handle']);
 			$error = curl_error($done['handle']);
             $return_value = curl_multi_getcontent($done['handle']);
+            echo "result: [{$return_value}] \n"; // debug todo del
 
 			// remove the curl handle that just completed
 			curl_multi_remove_handle($curl_queue, $done['handle']);

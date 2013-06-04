@@ -1,22 +1,20 @@
-// 2013-05-12
+// 2013-05-22
 // liuzhengyi
-// structure of damon-test2, using 2 HTTP proxys and 1 rmq queue
+// structure of damon-test4
 
 实现功能：
 	用户发消息到前端HTTP代理，前端HTTP代理判断消息合法性并将消息放入队列1；然后启动一个或多个worker1；
 	worker1从队列1中取消息，判断该消息接收者，从数据库中取出消息的接收者列表以及注册的接收方式；循环处理接收者。
-	//若接收方式是服务器推送，则交给推送程序处理；若接收方式是轮询，则交由轮询程序处理。
-    此处暂时只考虑服务器推送
 暂时留空模块：
 	合法性判断模块；
 	权限控制模块；
     写数据库模块；
 需要讨论的问题：
+    以client为基本单位，则每个参与进来的client都需要一个token_salt，是否需要client_name？client如何识别其他的clients？
 	是否需要用队列存储每个消息的接收者？
 	消息需要指定自己的expire time？
 	token的具体实现
     priority的设计
-    消息如何分类
 
 程序命名：
 	前端代理：receive_msg.php
@@ -33,11 +31,9 @@
 
 消息构成：
 
-	from: client id/name
 	token: dynamic token
+	from: client id/name
 	priority:[h|m|l]
-	// tags:	[start|fail|success] [upload|move|delete|...]  department[web|p2p|oa|...]
-	// tags:	web | p2p | oa
 	body:	within 100 characters
 	timestamp: UNIX timestamp
     type:   JSON|Serial|XML
@@ -46,14 +42,29 @@
 数据库中存储的信息：
 
 	client信息：
-		id, (name), interested_tags, get_mothod, address, expire_time, token_salt
+		id, (name), push_address, token_salt
 	message信息：
-		client_id, msg_body, expire_time
+		from_id, channel, msg_body, expire_time, timestamp, ttl, priority, type
+    channel信息：
+        channel_id, owner, push_list, 
 
 系统流程：
-    client到server注册通知方式和通知地址并登记感兴趣的tags；
-    server给client分配一个token_salt；
+    client到server注册，登记push_address；
+    server给client分配一个token_salt，和clientID；
+    client创建一个channel，channel中有一个接收者列表(记录client_id)，server返回channelID；
     client使用token_salt将消息体加密然后发送到server；
     server的前端代理将消息解析，判断合法性，然后放入队列；
     server的后端代理从队列中取消息，读数据库获得接收者列表，然后将消息分发给列表中的用户，如果失败则记录该事件。
     client收到消息后验证合法性，然后回复ack给server。
+
+client可以做的事情
+    注册；
+    创建自己的channel；
+    修改自己的channel；
+    删除自己的channel；
+    向拥有权限的channel发送消息；
+    申请加入一个channel的接收者列表；
+    接收消息；
+
+
+// 

@@ -1,0 +1,24 @@
+    有这么几个问题想问一下：
+    1. client身份验证和消息加密；
+    我目前的想法是使用服务之前，client先要在server这里注册一下，注册结果需要人工审核来决定。
+    注册后server给client分配一个id和一个token_salt，这两个信息是server和client共有的。
+    然后client在向server发送消息时要包含以下四个部分：
+    自己的id，自己的timestamp，token，消息体。
+    其中id和timestamp是明文的，token是用token_salt和timestamp做哈希得到的。
+    消息体则是用token_salt使用对称加密方法加密过的。
+    这样server收到一条消息后，首先根据消息中声明的id从数据库中取出对应token_salt，然后用token_salt和消息中timestamp做哈希验证消息的发送者；
+    证明消息发送者是注册用户之后，再用token_salt对消息体进行解密。
+
+    server端将消息分发给clients时也采取同样的策略。
+
+    这是我目前的一个大致想法，我对PHP的加密库比较陌生。
+    不知道上面这种思路是否可行，如果可行的话应该使用哪些库函数来实现比较合适？
+  
+    2. 权限控制；
+    我不太清楚咱们的业务里需要什么样的权限控制。
+    我目前的一个想法是：使用tags来标记消息，一条消息可以有多个tag。
+    发消息的用户只能使用指定的tag(s)，否则消息被认为不合法；
+    client到server注册时要登记自己感兴趣的tag(s)，这个过程需要人工审核。
+    server分发消息时，按照消息的tag(s)判断感兴趣的用户，进行分发。
+
+    不知道这样做是否符合需求？

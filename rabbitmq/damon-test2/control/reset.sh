@@ -1,4 +1,6 @@
 #/bin/sh -
 
-sh destroy.sh
-sh init.sh
+sh construct.sh
+sh destruct.sh
+sh construct.sh
+php init.php

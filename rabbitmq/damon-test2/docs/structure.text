@@ -1,18 +1,22 @@
 // 2013-05-12
 // liuzhengyi
-// structure of this damon, using 2 HTTP proxys and 1 rmq queue
+// structure of damon-test2, using 2 HTTP proxys and 1 rmq queue
 
 实现功能：
 	用户发消息到前端HTTP代理，前端HTTP代理判断消息合法性并将消息放入队列1；然后启动一个或多个worker1；
 	worker1从队列1中取消息，判断该消息接收者，从数据库中取出消息的接收者列表以及注册的接收方式；循环处理接收者。
-	若接收方式是服务器推送，则交给推送程序处理；若接收方式是轮询，则交由轮询程序处理。
+	//若接收方式是服务器推送，则交给推送程序处理；若接收方式是轮询，则交由轮询程序处理。
+    此处暂时只考虑服务器推送
 暂时留空模块：
 	合法性判断模块；
 	权限控制模块；
+    写数据库模块；
 需要讨论的问题：
 	是否需要用队列存储每个消息的接收者？
 	消息需要指定自己的expire time？
 	token的具体实现
+    priority的设计
+    消息如何分类
 
 程序命名：
 	前端代理：receive_msg.php
@@ -21,24 +25,35 @@
 		存放合法消息
 	worker1：distribute_task.php
 		从queue1中取消息和应该得到该消息的用户列表，然后分发给推送程序或轮询程序
-	推送程序：push.php
-		多次尝试将消息推送至客户端，如果无法成功则写入数据库
-	轮询程序：pull.php
-		将数据写入缓存，等待client来询问，若长期未询问则丢弃或写入数据库
+	推送程序： push_curl_xmpost($curl_msgs, $conf_curl_timeout, &$result)
+		尝试将一组消息推送至客户端，返回推送结果true表示成功，false表示失败
+	//轮询程序：pull.php
+	//	将数据写入缓存，等待client来询问，若长期未询问则丢弃或写入数据库
+
 
 消息构成：
 
 	from: client id/name
 	token: dynamic token
 	priority:[h|m|l]
-	// tags:	[start|fail|success] [upload|move|delete|...] [source id] partment[web|p2p|oa|...]
-	tags:	web | p2p | oa
+	// tags:	[start|fail|success] [upload|move|delete|...]  department[web|p2p|oa|...]
+	// tags:	web | p2p | oa
 	body:	within 100 characters
 	timestamp: UNIX timestamp
+    type:   JSON|Serial|XML
+    ttl:    0+
 
 数据库中存储的信息：
 
 	client信息：
-		name, interested_tags, get_mothod, expire_time, token
+		id, (name), interested_tags, get_mothod, address, expire_time, token_salt
 	message信息：
 		client_id, msg_body, expire_time
+
+系统流程：
+    client到server注册通知方式和通知地址并登记感兴趣的tags；
+    server给client分配一个token_salt；
+    client使用token_salt将消息体加密然后发送到server；
+    server的前端代理将消息解析，判断合法性，然后放入队列；
+    server的后端代理从队列中取消息，读数据库获得接收者列表，然后将消息分发给列表中的用户，如果失败则记录该事件。
+    client收到消息后验证合法性，然后回复ack给server。
